@@ -41,6 +41,8 @@ dependencies:
 
   # Windows Title Bar
   bitsdojo_window: ^0.1.1+1
+  firebase_remote_config: ^0.10.0+1
+  firebase_core: ^1.2.1
 
 dev_dependencies:
   flutter_test:

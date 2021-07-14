@@ -1,3 +1,5 @@
+import 'package:firebase_core/firebase_core.dart';
+import 'package:firebase_remote_config/firebase_remote_config.dart';
 import 'package:flutter/material.dart';
 import 'package:splashscreen/splashscreen.dart';
 import 'Styles.dart';
@@ -20,7 +22,16 @@ class _SplashScreenPageState extends State<SplashScreenPage> {
   Widget build(BuildContext context) {
     return new SplashScreen(
       seconds: 2,
-      navigateAfterSeconds: HomePage(),
+      navigateAfterSeconds: FutureBuilder<RemoteConfig>(
+        future: setupRemoteConfig(),
+        builder: (BuildContext context, AsyncSnapshot<RemoteConfig> snapshot) {
+          return snapshot.hasData
+              ?
+          HomePage(remoteConfig: snapshot.requireData)
+          // Home(remoteConfig: snapshot.requireData)
+              : Scaffold();
+        },
+      ),
       title: new Text(
         '\nSudoku',
         style: new TextStyle(
@@ -39,3 +50,4 @@ class _SplashScreenPageState extends State<SplashScreenPage> {
     );
   }
 }
+

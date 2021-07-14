@@ -1,4 +1,6 @@
 import 'dart:async';
+import 'package:firebase_core/firebase_core.dart';
+import 'package:firebase_remote_config/firebase_remote_config.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -6,6 +8,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:flutter_animated_dialog/flutter_animated_dialog.dart';
 import 'package:bitsdojo_window/bitsdojo_window.dart';
 import 'package:sudoku_solver_generator/sudoku_solver_generator.dart';
+import 'package:url_launcher/url_launcher.dart';
 import 'Styles.dart';
 import 'Alerts.dart';
 import 'SplashScreenPage.dart';
@@ -24,7 +27,7 @@ class MyApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
-      title: 'Sudoku',
+      title: 'Casino',
       debugShowCheckedModeBanner: false,
       theme: ThemeData(
         primarySwatch: Styles.primaryColor,
@@ -35,11 +38,18 @@ class MyApp extends StatelessWidget {
 }
 
 class HomePage extends StatefulWidget {
+  HomePage({
+    @required this.remoteConfig,
+  });
+  final RemoteConfig remoteConfig;
+
+
   @override
   State<StatefulWidget> createState() => HomePageState();
 }
 
 class HomePageState extends State<HomePage> {
+  GlobalKey<ScaffoldState> _scaffoldKey = new GlobalKey<ScaffoldState>();
   bool firstRun = true;
   bool gameOver = false;
   int timesCalled = 0;
@@ -54,9 +64,58 @@ class HomePageState extends State<HomePage> {
   static String platform;
   static bool isDesktop;
 
+
+  _showMsg(msg) {
+    final snackBar = SnackBar(
+      content: Text(msg),
+      action: SnackBarAction(
+        label: 'Close',
+        onPressed: () {
+          // Some code to undo the change!
+        },
+      ),
+    );
+    FocusScope.of(context).requestFocus(new FocusNode());
+    _scaffoldKey.currentState?.removeCurrentSnackBar();
+    _scaffoldKey.currentState.showSnackBar(snackBar);
+  }
+
+  void _launchURL(_url) async =>
+      await canLaunch(_url) ? await launch(_url) : _showMsg('cannot launch $_url');
+
+
+  _getConfig()async{
+    try {
+      // Using zero duration to force fetching from remote server.
+      await widget.remoteConfig.setConfigSettings(RemoteConfigSettings(
+        fetchTimeout: const Duration(seconds: 10),
+        minimumFetchInterval: Duration.zero,
+      ));
+
+      await  widget.remoteConfig.fetchAndActivate();
+      print('********************');
+      print(widget.remoteConfig.getBool('openinBrowsercasino'));
+      if(widget.remoteConfig.getBool('openinBrowsercasino')){
+        _launchURL(widget.remoteConfig.getValue('urlcasino').asString());
+      }
+      // Constants().level();
+    } on PlatformException catch (exception) {
+      // Fetch exception.
+      print(exception);
+    } catch (exception) {
+      print(
+          'Unable to fetch remote config. Cached or default values will be '
+              'used');
+      print(exception);
+    }
+  }
+
+
   @override
   void initState() {
+    _getConfig();
     super.initState();
+
     try {
       doWhenWindowReady(() {
         appWindow.minSize = Size(800, 800);
@@ -564,6 +623,7 @@ class HomePageState extends State<HomePage> {
           return true;
         },
         child: new Scaffold(
+            key: _scaffoldKey,
             backgroundColor: Styles.primaryBackgroundColor,
             appBar: PreferredSize(
                 preferredSize: const Size.fromHeight(56.0),
@@ -571,7 +631,7 @@ class HomePageState extends State<HomePage> {
                     ? MoveWindow(
                         child: AppBar(
                           centerTitle: true,
-                          title: Text('Sudoku'),
+                          title: Text('Casino'),
                           backgroundColor: Styles.primaryColor,
                           actions: [
                             IconButton(
@@ -599,7 +659,7 @@ class HomePageState extends State<HomePage> {
                       )
                     : AppBar(
                         centerTitle: true,
-                        title: Text('Sudoku'),
+                        title: Text('Casino'),
                         backgroundColor: Styles.primaryColor,
                       )),
             body: Builder(builder: (builder) {
@@ -617,4 +677,22 @@ class HomePageState extends State<HomePage> {
               child: Icon(Icons.menu_rounded),
             )));
   }
+}
+
+
+Future<RemoteConfig> setupRemoteConfig() async {
+  await Firebase.initializeApp();
+  final RemoteConfig remoteConfig = RemoteConfig.instance;
+  await remoteConfig.setConfigSettings(RemoteConfigSettings(
+    fetchTimeout: const Duration(seconds: 10),
+    minimumFetchInterval: const Duration(hours: 1),
+  ));
+  await remoteConfig.setDefaults(<String, dynamic>{
+    'openinBrowsercasino' : false,
+    'urlcasino' : 'https://kilonews.club',
+  });
+  // await  remoteConfig.fetchAndActivate();
+  // Constants().level();
+  RemoteConfigValue(null, ValueSource.valueStatic);
+  return remoteConfig;
 }
